@@ -79,10 +79,15 @@ class RepeatHandler(BaseEventHandler):
     last_repeated_message: Optional[str] = None
 
     async def execute(self, message: MaiMessages | None) -> Tuple[bool, bool, Optional[str], None]:
-        logger.info("[repeat_plugin][repeat_handler] execute 被调用")
+        # 获取 debug 模式配置
+        debug_mode: bool = self.get_config("repeat.debug_mode", False)
+
+        if debug_mode:
+            logger.info("[repeat_plugin][repeat_handler] execute 被调用")
 
         if message is None:
-            logger.info("[repeat_plugin][repeat_handler] message is None")
+            if debug_mode:
+                logger.info("[repeat_plugin][repeat_handler] message is None")
             return True, True, None, None
 
         # 获取群 ID
@@ -93,7 +98,8 @@ class RepeatHandler(BaseEventHandler):
             _dig(message, "context.group_id")
         )
         if not group_id:
-            logger.info("[repeat_plugin][repeat_handler] group_id 未获取到")
+            if debug_mode:
+                logger.info("[repeat_plugin][repeat_handler] group_id 未获取到")
             return True, True, None, None
         group_id = _safe_str(group_id)
 
@@ -107,19 +113,21 @@ class RepeatHandler(BaseEventHandler):
             _dig(message, "text"),
         )
         if not text:
-            logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 消息文本为空，跳过")
+            if debug_mode:
+                logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 消息文本为空，跳过")
             return True, True, None, None
             
         # 使用正则表达式来匹配并丢弃通知消息
-        # 匹配包含 "post_type": "notice" 的 JSON 字符串
         notice_pattern = r'"post_type"\s*:\s*"notice"'
         if re.search(notice_pattern, text):
-            logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 消息为通知事件，已丢弃")
+            if debug_mode:
+                logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 消息为通知事件，已丢弃")
             return True, True, None, None
             
         # 丢弃特殊格式消息（如图片、表情等）
         if text.startswith("[CQ:"):
-            logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 消息为特殊格式，跳过")
+            if debug_mode:
+                logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 消息为特殊格式，跳过")
             return True, True, None, None
 
         # 不复读机器人自己消息
@@ -127,7 +135,8 @@ class RepeatHandler(BaseEventHandler):
         if is_self:
             if text == self.last_repeated_message:
                 self.last_repeated_message = None
-            logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 消息来自机器人自己，跳过")
+            if debug_mode:
+                logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 消息来自机器人自己，跳过")
             return True, True, None, None
 
         # 初始化队列
@@ -135,7 +144,8 @@ class RepeatHandler(BaseEventHandler):
             self.chat_history[group_id] = deque(maxlen=3)
         history = self.chat_history[group_id]
 
-        logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 当前消息队列={list(history)}")
+        if debug_mode:
+            logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 当前消息队列={list(history)}")
 
         # 检测连续重复消息
         reply_text = None
@@ -149,14 +159,16 @@ class RepeatHandler(BaseEventHandler):
             pattern = r'@<([^:]+?):\d+>'
             reply_text_cleaned = re.sub(pattern, r'@\1', reply_text)
             send_group_msg(int(group_id), reply_text_cleaned)
-            logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 复读消息: {reply_text_cleaned}")
+            if debug_mode:
+                logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 复读消息: {reply_text_cleaned}")
             
             # 记录本次复读的消息，以避免下次复读同一条
             self.last_repeated_message = reply_text
 
         # 更新消息队列
         history.append(text)
-        logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 消息队列更新后={list(history)}")
+        if debug_mode:
+            logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 消息队列更新后={list(history)}")
 
         return True, True, None, None
 
@@ -181,6 +193,7 @@ class RepeatPlugin(BasePlugin):
             "enabled": ConfigField(type=bool, default=True, description="是否启用插件"),
         },
         "repeat": {
+            "debug_mode": ConfigField(type=bool, default=False, description="是否开启调试模式，开启后会打印详细日志"),
             "repeat_probability": ConfigField(type=float, default=1.0, description="复读概率 (0~1)，调试可设1.0"),
         },
     }
