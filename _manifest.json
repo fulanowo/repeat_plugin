@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "description": "一个简单的复读插件，可以检测群聊中连续重复的消息并自动进行复读，为群聊增添乐趣。",
   "author": {
-    "name": "你的名字",
+    "name": "何夕",
     "url": "https://github.com/Heximiao/repeat_plugin",
     "email": "lcy1416603026@gmail.com"
   },
