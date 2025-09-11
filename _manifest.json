@@ -1,9 +1,9 @@
 {
   "manifest_version": 1,
   "name": "repeat_plugin",
-  "display_name": "复读机插件",
+  "display_name": "复读插件",
   "version": "1.0.0",
-  "description": "一个简单的复读插件，可以检测群聊中连续重复的消息并自动进行复读，为群聊增添乐趣。",
+  "description": "一个简单的复读插件(和上面的复读插件不一样，无需更改代码)，可以检测群聊中连续重复的消息并自动进行复读，为群聊增添乐趣。",
   "author": {
     "name": "何夕",
     "url": "https://github.com/Heximiao/repeat_plugin",
