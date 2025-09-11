@@ -149,8 +149,8 @@ class RepeatHandler(BaseEventHandler):
 
         # 检测连续重复消息
         reply_text = None
-        if len(history) >= 2:
-            if history[-1] == history[-2]:
+        if len(history) >= 3:
+            if history[-1] == history[-2] == history[-3]:
                 reply_text = history[-1]
 
         # 复读前判断：如果需要复读的消息与上次复读的相同，则不复读
