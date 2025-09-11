@@ -3,6 +3,7 @@ from collections import deque
 import re
 import http.client
 import json
+import random
 
 from src.plugin_system import (
     BasePlugin,
@@ -79,8 +80,10 @@ class RepeatHandler(BaseEventHandler):
     last_repeated_message: Optional[str] = None
 
     async def execute(self, message: MaiMessages | None) -> Tuple[bool, bool, Optional[str], None]:
-        # 获取 debug 模式配置
+        # 获取 debug 模式和复读概率配置
         debug_mode: bool = self.get_config("repeat.debug_mode", False)
+        repeat_probability: float = self.get_config("repeat.repeat_probability", 1.0)
+        skip_probability: float = self.get_config("repeat.skip_probability", 0.0)
 
         if debug_mode:
             logger.info("[repeat_plugin][repeat_handler] execute 被调用")
@@ -133,6 +136,7 @@ class RepeatHandler(BaseEventHandler):
         # 不复读机器人自己消息
         is_self = getattr(message, "is_self", False)
         if is_self:
+            # 如果本次消息是机器人上次复读的消息，则清除记录，避免连续复读
             if text == self.last_repeated_message:
                 self.last_repeated_message = None
             if debug_mode:
@@ -147,24 +151,38 @@ class RepeatHandler(BaseEventHandler):
         if debug_mode:
             logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 当前消息队列={list(history)}")
 
-        # 检测连续重复消息
+        # 检测连续重复消息并进行概率判断
         reply_text = None
-        if len(history) >= 3:
-            if history[-1] == history[-2] == history[-3]:
-                reply_text = history[-1]
+        if len(history) >= 2:
+            if history[-1] == history[-2] == text:
+                # 满足复读条件后，先进行不复读的概率判断
+                if random.random() <= skip_probability:
+                    if debug_mode:
+                        logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 满足复读条件，但通过跳过概率检查，本次不复读。")
+                    # 直接返回，不进行任何复读操作
+                    history.append(text)
+                    return True, True, None, None
 
-        # 复读前判断：如果需要复读的消息与上次复读的相同，则不复读
+                # 如果没有跳过，再进行复读概率判断
+                if random.random() <= repeat_probability:
+                    reply_text = text
+                elif debug_mode:
+                    logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 满足复读条件，但未通过复读概率检查。")
+
+        # 准备复读，并避免复读与上次相同的消息
         if reply_text and reply_text != self.last_repeated_message:
-            # 移除At机器人部分
+            # 移除 @机器人 部分
             pattern = r'@<([^:]+?):\d+>'
             reply_text_cleaned = re.sub(pattern, r'@\1', reply_text)
+            
             send_group_msg(int(group_id), reply_text_cleaned)
+            
             if debug_mode:
                 logger.info(f"[repeat_plugin][repeat_handler] 群={group_id} 复读消息: {reply_text_cleaned}")
             
             # 记录本次复读的消息，以避免下次复读同一条
             self.last_repeated_message = reply_text
-
+        
         # 更新消息队列
         history.append(text)
         if debug_mode:
@@ -194,7 +212,8 @@ class RepeatPlugin(BasePlugin):
         },
         "repeat": {
             "debug_mode": ConfigField(type=bool, default=False, description="是否开启调试模式，开启后会打印详细日志"),
-            "repeat_probability": ConfigField(type=float, default=1.0, description="复读概率 (0~1)，调试可设1.0"),
+            "repeat_probability": ConfigField(type=float, default=0.7, description="动态复读，就是每次复读别人的话的顺序不一样，建议0.7"),
+            "skip_probability": ConfigField(type=float, default=0.1, description="完全不复读的概率 (0~1)"),
         },
     }
 
