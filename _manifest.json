@@ -11,7 +11,7 @@
   },
   "license": "MIT",
   "host_application": {
-    "min_version": "0.9.0",
+    "min_version": "0.10.1",
     "max_version": "0.10.2"
   },
   "entry": "plugin.py",
